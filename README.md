@@ -1,76 +1,64 @@
-# Golang Microservices - Clean Architecture
+# Ride Hailing Backend - Clean Architecture
 
-[![issues](https://img.shields.io/github/issues/gbrayhan/microservices-go)](https://github.com/gbrayhan/microservices-go/tree/master/.github/ISSUE_TEMPLATE)
-[![forks](https://img.shields.io/github/forks/gbrayhan/microservices-go)](https://github.com/gbrayhan/microservices-go/network/members)
-[![stars](https://img.shields.io/github/stars/gbrayhan/microservices-go)](https://github.com/gbrayhan/microservices-go/stargazers)
-[![license](https://img.shields.io/github/license/gbrayhan/microservices-go)](https://github.com/gbrayhan/microservices-go/tree/master/LICENSE)
-[![CodeFactor](https://www.codefactor.io/repository/github/gbrayhan/microservices-go/badge/main)](https://www.codefactor.io/repository/github/gbrayhan/microservices-go/overview/main)
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/6c10cc49928447f38952edaab67a94a4)](https://www.codacy.com/gh/gbrayhan/microservices-go/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=gbrayhan/microservices-go&amp;utm_campaign=Badge_Grade)
+[![Go Version](https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat&logo=go)](https://golang.org)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://www.docker.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17.4-316192.svg)](https://www.postgresql.org/)
 
-A production-ready microservices boilerplate built with Go, implementing Clean Architecture principles with comprehensive testing, security, and documentation.
+A production-ready ride-hailing backend API built with Go, implementing Clean Architecture principles. This project provides complete CRUD operations for a ride-hailing mobile application with user management, vehicle tracking, ride matching, and payment processing.
 
 ## 🏗️ Architecture Overview
 
-### Clean Architecture Layers
+This project strictly follows **Clean Architecture** principles with clear separation of concerns:
 
 ```mermaid
 graph TB
     subgraph "External Layer"
-        UI[Web UI]
-        API[REST API]
+        Mobile[Mobile App]
         DB[(PostgreSQL)]
     end
     
     subgraph "Infrastructure Layer"
         Controllers[REST Controllers]
-        Repositories[Repositories]
-        Security[JWT Security]
-        Logger[Structured Logging]
+        Repo[Repositories]
+        JWT[JWT Security]
+        Logger[Zap Logger]
     end
     
     subgraph "Application Layer"
         AuthUC[Auth Use Cases]
-        UserUC[User Use Cases]
-        MedicineUC[Medicine Use Cases]
+        RideUC[Ride Use Cases]
+        VehicleUC[Vehicle Use Cases]
+        PaymentUC[Payment Use Cases]
     end
     
     subgraph "Domain Layer"
-        Entities[Domain Entities]
+        User[User Entity]
+        Ride[Ride Entity]
+        Vehicle[Vehicle Entity]
+        Payment[Payment Entity]
         Rules[Business Rules]
-        Errors[Domain Errors]
     end
     
-    UI --> API
-    API --> Controllers
+    Mobile --> Controllers
     Controllers --> AuthUC
-    Controllers --> UserUC
-    Controllers --> MedicineUC
-    AuthUC --> Entities
-    UserUC --> Entities
-    MedicineUC --> Entities
-    Repositories --> DB
-    AuthUC --> Repositories
-    UserUC --> Repositories
-    MedicineUC --> Repositories
-    Security --> AuthUC
-    Logger --> Controllers
-    Logger --> Repositories
+    Controllers --> RideUC
+    Controllers --> VehicleUC
+    Controllers --> PaymentUC
+    AuthUC --> User
+    RideUC --> Ride
+    VehicleUC --> Vehicle
+    PaymentUC --> Payment
+    Repo --> DB
 ```
 
 ### Dependency Flow
 
-```mermaid
-graph LR
-    subgraph "Dependencies Point Inward"
-        A[Infrastructure] --> B[Application]
-        B --> C[Domain]
-        A --> C
-    end
-    
-    subgraph "Domain is Independent"
-        C --> D[No External Dependencies]
-    end
-```
+**Dependencies point inward**: Infrastructure → Application → Domain
+
+- **Domain Layer**: Contains business entities and rules (100% independent)
+- **Application Layer**: Contains use cases and business logic
+- **Infrastructure Layer**: Contains frameworks, databases, and external services
 
 ## 🚀 Quick Start
 
@@ -78,309 +66,409 @@ graph LR
 
 - Go 1.24.2+
 - Docker & Docker Compose
-- PostgreSQL (via Docker)
+- Make (optional, for convenience)
 
-### Installation
+### Installation & Running
 
 ```bash
 # Clone the repository
-git clone https://github.com/gbrayhan/microservices-go
-cd microservices-go
+git clone https://github.com/yourusername/microservices-go-ride
+cd microservices-go-ride
 
-# Copy environment file
+# Create .env file from example
 cp .env.example .env
 
-# Start services
+# Start all services with Docker Compose
+make run
+# OR
 docker-compose up --build -d
 ```
 
 ### Verify Installation
 
 ```bash
-# Check if services are running
-docker-compose ps
+# Check service status
+make status
 
-# Test the API
-curl http://localhost:8080/v1/health
+# Expected output:
+# - API: http://localhost:8080
+# - Adminer (DB UI): http://localhost:8081
+# - PostgreSQL: localhost:5433
+```
+
+### Test the API
+
+```bash
+# Health check
+curl http://localhost:8080/v1/user/
+
+# Should return user list or empty array
 ```
 
 ## 📋 Features
 
 ### Core Features
-- **Clean Architecture**: Fully implemented with dependency inversion
-- **JWT Authentication**: Secure token-based authentication
-- **Structured Logging**: Zap logger with correlation IDs
-- **Comprehensive Testing**: Unit, integration, and acceptance tests
-- **API Documentation**: Complete REST API documentation
-- **Error Handling**: Centralized error management
-- **Validation**: Request validation with custom rules
-- **Search & Pagination**: Advanced search capabilities
+
+- ✅ **User Management**: Riders, Drivers, and Admin roles
+- ✅ **Vehicle Management**: CRUD for driver vehicles
+- ✅ **Ride Management**: Create, match, track, and complete rides
+- ✅ **Payment Processing**: Payment tracking and status management
+- ✅ **JWT Authentication**: Secure token-based auth with refresh tokens
+- ✅ **Role-Based Access Control**: Different permissions for riders, drivers, admins
+- ✅ **Search & Pagination**: Advanced filtering and pagination
+- ✅ **Structured Logging**: Zap logger with correlation IDs
 
 ### Technical Stack
-- **Framework**: Gin-Gonic (HTTP router)
-- **Database**: PostgreSQL with GORM
-- **Authentication**: JWT with refresh tokens
-- **Logging**: Zap structured logger
-- **Testing**: Go testing + Cucumber integration tests
-- **Documentation**: Comprehensive API documentation
-- **Containerization**: Docker & Docker Compose
-- **Code Quality**: golangci-lint, CodeFactor, Codacy
 
-## 🔧 Development
+| Component | Technology |
+|-----------|-----------|
+| Language | Go 1.24+ |
+| Framework | Gin-Gonic |
+| ORM | GORM |
+| Database | PostgreSQL 17.4 |
+| Auth | JWT (Access + Refresh) |
+| Logger | Zap |
+| Container | Docker Compose |
+| Testing | Go test + Cucumber |
 
-### Project Structure
+## 🗂️ Project Structure
 
 ```
-microservices-go/
+microservices-go-ride/
 ├── src/
-│   ├── domain/           # 🎯 Domain Layer (Entities & Business Rules)
-│   ├── application/      # 📋 Application Layer (Use Cases)
-│   └── infrastructure/   # 🔧 Infrastructure Layer
-│       ├── di/           # Dependency Injection
-│       ├── repository/   # Data Access Layer
-│       ├── rest/         # HTTP Controllers
-│       ├── security/     # JWT & Security
-│       └── logger/       # Structured Logging
+│   ├── domain/                 # 🎯 Domain Layer
+│   │   ├── user/              # User entity
+│   │   ├── vehicle/           # Vehicle entity
+│   │   ├── ride/              # Ride entity
+│   │   ├── payment/           # Payment entity
+│   │   └── errors/            # Domain errors
+│   │
+│   ├── application/            # 📋 Application Layer
+│   │   └── usecases/
+│   │       ├── auth/          # Authentication logic
+│   │       ├── user/          # User management
+│   │       ├── vehicle/       # Vehicle management
+│   │       ├── ride/          # Ride management
+│   │       └── payment/       # Payment processing
+│   │
+│   └── infrastructure/         # 🔧 Infrastructure Layer
+│       ├── di/                # Dependency Injection
+│       ├── repository/        # Data Access Layer
+│       │   └── psql/          # PostgreSQL repos
+│       ├── rest/              # HTTP Layer
+│       │   ├── controllers/   # REST Controllers
+│       │   ├── middlewares/   # HTTP Middlewares
+│       │   └── routes/        # Route definitions
+│       ├── security/          # JWT & Security
+│       └── logger/            # Structured Logging
+│
 ├── Test/
-│   └── integration/      # Integration Tests
-├── docs/                 # Documentation
-└── docker-compose.yml    # Development Environment
+│   └── integration/           # Integration Tests
+│
+├── docs/                      # Documentation
+├── docker-compose.yml         # Docker Compose config
+├── Dockerfile                 # Multi-stage Docker build
+├── Makefile                   # Development commands
+└── main.go                    # Application entry point
 ```
 
-### Available Commands
+## 🔧 Development Commands
+
+### Using Makefile (Recommended)
 
 ```bash
-# Run the application
-go run main.go
+# Show all available commands
+make help
+
+# Build Docker images
+make build
+
+# Start all services
+make run
+
+# Stop all services
+make stop
+
+# View logs
+make logs
 
 # Run tests
-go test ./...
+make test
 
 # Run tests with coverage
-./coverage.sh
+make coverage
 
-# Run integration tests
-./scripts/run-integration-test.bash
+# Database shell
+make db-shell
 
-# Lint code
-golangci-lint run ./...
-
-# Security scan
-trivy fs .
+# Clean up everything
+make clean
 ```
 
-## 🔐 Authentication Flow
+### Manual Commands
 
-### Login Sequence
+```bash
+# Build and start
+docker-compose up --build -d
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant AuthController
-    participant AuthUseCase
-    participant UserRepository
-    participant JWTService
-    participant Database
+# Stop services
+docker-compose down
 
-    Client->>AuthController: POST /auth/login
-    AuthController->>AuthUseCase: Login(email, password)
-    AuthUseCase->>UserRepository: GetByEmail(email)
-    UserRepository->>Database: SELECT * FROM users
-    Database-->>UserRepository: User data
-    UserRepository-->>AuthUseCase: User entity
-    AuthUseCase->>AuthUseCase: Validate password
-    AuthUseCase->>JWTService: Generate tokens
-    JWTService-->>AuthUseCase: Access + Refresh tokens
-    AuthUseCase-->>AuthController: User + Tokens
-    AuthController-->>Client: 200 OK + Tokens
-```
+# View logs
+docker-compose logs -f api
 
-### Token Refresh Flow
+# Run tests locally
+go test ./...
 
-```mermaid
-stateDiagram-v2
-    [*] --> Authenticated
-    Authenticated --> TokenExpired: Access token expires
-    TokenExpired --> Refreshing: Send refresh token
-    Refreshing --> Authenticated: New tokens received
-    Refreshing --> Unauthorized: Invalid refresh token
-    Unauthorized --> [*]: Re-login required
-    Authenticated --> [*]: Logout
+# Run with coverage
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out
 ```
 
 ## 📊 API Endpoints
 
 ### Authentication
-- `POST /v1/auth/login` - User login
-- `POST /v1/auth/access-token` - Refresh access token
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/v1/auth/login` | User login |
+| POST | `/v1/auth/access-token` | Refresh access token |
 
 ### Users
-- `GET /v1/user` - Get all users
-- `POST /v1/user` - Create user
-- `GET /v1/user/:id` - Get user by ID
-- `PUT /v1/user/:id` - Update user
-- `DELETE /v1/user/:id` - Delete user
-- `GET /v1/user/search` - Search users with pagination
-- `GET /v1/user/search-property` - Search by specific property
 
-### Medicines
-- `GET /v1/medicine` - Get all medicines
-- `POST /v1/medicine` - Create medicine
-- `GET /v1/medicine/:id` - Get medicine by ID
-- `PUT /v1/medicine/:id` - Update medicine
-- `DELETE /v1/medicine/:id` - Delete medicine
-- `GET /v1/medicine/search` - Search medicines with pagination
-- `GET /v1/medicine/search-property` - Search by specific property
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| GET | `/v1/user` | List all users | ✅ |
+| POST | `/v1/user` | Create user | ✅ Admin |
+| GET | `/v1/user/:id` | Get user by ID | ✅ |
+| PUT | `/v1/user/:id` | Update user | ✅ |
+| DELETE | `/v1/user/:id` | Delete user | ✅ Admin |
+| GET | `/v1/user/search` | Search users | ✅ |
 
-## 🧪 Testing Strategy
+### Vehicles (Coming in Phase 4)
 
-### Test Pyramid
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| GET | `/v1/vehicle` | List vehicles | ✅ |
+| POST | `/v1/vehicle` | Add vehicle | ✅ Driver |
+| GET | `/v1/vehicle/:id` | Get vehicle | ✅ |
+| PUT | `/v1/vehicle/:id` | Update vehicle | ✅ Driver |
+| DELETE | `/v1/vehicle/:id` | Delete vehicle | ✅ Driver |
+
+### Rides (Coming in Phase 4)
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| GET | `/v1/ride` | List rides | ✅ |
+| POST | `/v1/ride` | Create ride | ✅ Rider |
+| GET | `/v1/ride/:id` | Get ride details | ✅ |
+| PUT | `/v1/ride/:id/status` | Update ride status | ✅ Driver |
+| POST | `/v1/ride/:id/match` | Match driver | ✅ System |
+
+### Payments (Coming in Phase 4)
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| GET | `/v1/payment` | List payments | ✅ |
+| POST | `/v1/payment` | Create payment | ✅ |
+| GET | `/v1/payment/:id` | Get payment | ✅ |
+
+## 🔐 Authentication Flow
 
 ```mermaid
-graph TB
-    subgraph "Test Pyramid"
-        E2E[End-to-End Tests<br/>Cucumber Integration]
-        Integration[Integration Tests<br/>API Testing]
-        Unit[Unit Tests<br/>Use Cases & Controllers]
-    end
-    
-    E2E --> Integration
-    Integration --> Unit
+sequenceDiagram
+    participant Client
+    participant API
+    participant AuthUseCase
+    participant UserRepo
+    participant JWTService
+    participant DB
+
+    Client->>API: POST /auth/login
+    API->>AuthUseCase: Login(email, password)
+    AuthUseCase->>UserRepo: GetByEmail(email)
+    UserRepo->>DB: SELECT * FROM users
+    DB-->>UserRepo: User data
+    UserRepo-->>AuthUseCase: User entity
+    AuthUseCase->>AuthUseCase: Validate password
+    AuthUseCase->>JWTService: Generate tokens
+    JWTService-->>AuthUseCase: Access + Refresh
+    AuthUseCase-->>API: User + Tokens
+    API-->>Client: 200 OK + Tokens
 ```
 
-### Test Coverage
+## 🧪 Testing
 
 ```bash
-# Run all tests with coverage
-./coverage.sh
+# Run all tests
+make test
 
-# Expected coverage: ≥ 80%
+# Run tests with coverage
+make coverage
+
+# Run integration tests
+make test-integration
+
+# Expected coverage: ≥80%
 ```
+
+### Test Structure
+
+- **Unit Tests**: Test individual functions and use cases
+- **Integration Tests**: Test complete flows with real database
+- **Acceptance Tests**: Cucumber BDD tests
 
 ## 🔒 Security Features
 
-- **JWT Authentication**: Access and refresh tokens
-- **Password Hashing**: bcrypt with salt
-- **CORS Configuration**: Cross-origin resource sharing
-- **Input Validation**: Request sanitization
-- **Error Handling**: No sensitive data exposure
-- **Security Headers**: XSS protection, content security policy
+- ✅ JWT Authentication (Access + Refresh tokens)
+- ✅ Password hashing with bcrypt
+- ✅ Role-based access control (RBAC)
+- ✅ CORS configuration
+- ✅ Input validation and sanitization
+- ✅ SQL injection prevention (via GORM)
+- ✅ Secure headers (XSS protection, CSP)
 
-## 📈 Monitoring & Observability
+## 📈 Database Schema
 
-### Logging Structure
+### Main Tables
 
-```json
-{
-  "level": "info",
-  "timestamp": "2024-01-01T00:00:00Z",
-  "message": "User login successful",
-  "user_id": 123,
-  "email": "user@example.com",
-  "correlation_id": "req-123-456",
-  "service": "auth-service"
-}
-```
+- **users**: User accounts (riders, drivers, admins)
+- **vehicles**: Driver vehicles
+- **rides**: Ride requests and history
+- **payments**: Payment transactions
+- **refresh_tokens**: JWT refresh tokens
 
-### Health Checks
+See `docs/DATABASE_SCHEMA.md` (coming in Phase 5) for complete schema documentation.
 
-```bash
-# Health endpoint
-GET /v1/health
+## 🐳 Docker Services
 
-# Response
-{
-  "status": "healthy",
-  "timestamp": "2024-01-01T00:00:00Z",
-  "version": "1.0.0"
-}
-```
+| Service | Port | Description |
+|---------|------|-------------|
+| **api** | 8080 | Main API service |
+| **db** | 5433 | PostgreSQL database |
+| **adminer** | 8081 | Database management UI |
 
-## 🚀 Deployment
+### Adminer Access
 
-### Docker Deployment
-
-```bash
-# Build production image
-docker build -t microservices-go .
-
-# Run with environment variables
-docker run -p 8080:8080 \
-  -e DB_HOST=postgres \
-  -e DB_PORT=5432 \
-  -e JWT_ACCESS_SECRET_KEY=your_secret \
-  microservices-go
-```
-
-### Environment Variables
-
-```bash
-# Server Configuration
-SERVER_PORT=8080
-GO_ENV=production
-
-# Database Configuration
-DB_HOST=localhost
-DB_PORT=5432
-DB_USER=postgres
-DB_PASSWORD=password
-DB_NAME=microservices_go
-
-# JWT Configuration
-JWT_ACCESS_SECRET_KEY=your_access_secret
-JWT_REFRESH_SECRET_KEY=your_refresh_secret
-JWT_ACCESS_TIME_MINUTE=60
-JWT_REFRESH_TIME_HOUR=24
-```
+- URL: http://localhost:8081
+- System: PostgreSQL
+- Server: db
+- Username: postgres
+- Password: (from .env file)
+- Database: ride_hailing_db
 
 ## 📚 Documentation
 
-- [Clean Architecture Guide](docs/README_CLEAN_ARCHITECTURE.md) - Detailed architecture documentation
-- [API Search Endpoints](docs/SEARCH_ENDPOINTS.md) - Search and pagination features
-- [Complete API Documentation](docs/API_DOCUMENTATION.md) - Full API reference
+- [Clean Architecture Guide](docs/README_CLEAN_ARCHITECTURE.md)
+- [API Documentation](docs/API_DOCUMENTATION.md)
+- [Search Endpoints](docs/SEARCH_ENDPOINTS.md)
+- [Deployment Guide](docs/DEPLOYMENT_GUIDE.md)
+
+## 🚧 Development Roadmap
+
+### ✅ Phase 1: Infrastructure & Docker (COMPLETED)
+- Docker Compose setup
+- Environment configuration
+- Makefile commands
+
+### 🔄 Phase 2: Domain Layer (IN PROGRESS)
+- User, Vehicle, Ride, Payment entities
+- Business rules and enums
+- Domain tests
+
+### ⏳ Phase 3: Application Layer (PENDING)
+- Use cases for all entities
+- Business logic implementation
+- Use case tests
+
+### ⏳ Phase 4: Infrastructure - API (PENDING)
+- Repositories for all entities
+- REST controllers
+- Route configuration
+- Middleware integration
+
+### ⏳ Phase 5: Database & Migrations (PENDING)
+- Migration files
+- Seed data
+- Index optimization
+
+### ⏳ Phase 6: Testing & CI/CD (PENDING)
+- Complete test coverage
+- GitHub Actions workflow
+- Test automation
+
+### ⏳ Phase 7: Documentation (PENDING)
+- Developer guide
+- API specifications
+- Deployment documentation
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ### Development Guidelines
 
 - Follow Clean Architecture principles
-- Write tests for new features
-- Maintain ≥ 80% test coverage
+- Write tests for new features (≥80% coverage)
 - Use conventional commit messages
 - Update documentation for API changes
+- Never import from infrastructure in domain layer
 
-## 📄 License
+## 📄 Environment Variables
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+```bash
+# Application
+APP_ENV=development
+SERVER_PORT=8080
 
-## 🆘 Support
+# Database
+DB_HOST=db
+DB_PORT=5432
+DB_NAME=ride_hailing_db
+DB_USER=postgres
+DB_PASSWORD=your_password
 
-- **Issues**: [GitHub Issues](https://github.com/gbrayhan/microservices-go/issues)
-- **Documentation**: [Wiki](https://github.com/gbrayhan/microservices-go/wiki)
-- **Discussions**: [GitHub Discussions](https://github.com/gbrayhan/microservices-go/discussions)
+# JWT
+JWT_ACCESS_SECRET_KEY=your_access_secret
+JWT_REFRESH_SECRET_KEY=your_refresh_secret
+JWT_ACCESS_TIME_MINUTE=60
+JWT_REFRESH_TIME_HOUR=168
+
+# Initial Admin
+START_USER_EMAIL=admin@ridehailing.com
+START_USER_PW=Admin@123
+```
 
 ## 🔄 Changelog
 
-### v2.0.0 (Latest)
-- ✅ Implemented Clean Architecture
-- ✅ Added comprehensive search and pagination
-- ✅ Enhanced error handling and logging
-- ✅ Improved test coverage and quality
-- ✅ Added integration tests with Cucumber
-- ✅ Updated all documentation to English
-- ✅ Added architecture diagrams and flow charts
+### v1.0.0 (Phase 1 - Current)
+- ✅ Docker Compose setup with API, PostgreSQL, Adminer
+- ✅ Environment configuration
+- ✅ Makefile with development commands
+- ✅ Clean Architecture foundation
+- ✅ JWT authentication (from base project)
+- ✅ User management (from base project)
 
-### v1.0.0
-- ✅ Initial microservices structure
-- ✅ Basic CRUD operations
-- ✅ JWT authentication
-- ✅ PostgreSQL integration
+### v2.0.0 (Planned)
+- ⏳ Complete ride-hailing entities
+- ⏳ Vehicle and ride management
+- ⏳ Payment processing
+- ⏳ Driver-rider matching
+- ⏳ Real-time status updates
 
+## 📞 Support
 
+- **Issues**: [GitHub Issues](https://github.com/yourusername/microservices-go-ride/issues)
+- **Documentation**: [Wiki](https://github.com/yourusername/microservices-go-ride/wiki)
 
+## 📝 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+This project is based on [microservices-go](https://github.com/gbrayhan/microservices-go) by gbrayhan, adapted for ride-hailing use case.
+
+---
+
+**Built with ❤️ using Go and Clean Architecture**

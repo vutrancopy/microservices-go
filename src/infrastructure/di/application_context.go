@@ -4,32 +4,93 @@ import (
 	"sync"
 
 	authUseCase "github.com/gbrayhan/microservices-go/src/application/usecases/auth"
+	documentUseCase "github.com/gbrayhan/microservices-go/src/application/usecases/document"
+	locationUseCase "github.com/gbrayhan/microservices-go/src/application/usecases/location"
 	medicineUseCase "github.com/gbrayhan/microservices-go/src/application/usecases/medicine"
+	paymentUseCase "github.com/gbrayhan/microservices-go/src/application/usecases/payment"
+	pricingUseCase "github.com/gbrayhan/microservices-go/src/application/usecases/pricing"
+	promoUseCase "github.com/gbrayhan/microservices-go/src/application/usecases/promo"
+	rideUseCase "github.com/gbrayhan/microservices-go/src/application/usecases/ride"
+	scheduledUseCase "github.com/gbrayhan/microservices-go/src/application/usecases/scheduled"
 	userUseCase "github.com/gbrayhan/microservices-go/src/application/usecases/user"
+	vehicleUseCase "github.com/gbrayhan/microservices-go/src/application/usecases/vehicle"
+	walletUseCase "github.com/gbrayhan/microservices-go/src/application/usecases/wallet"
 	logger "github.com/gbrayhan/microservices-go/src/infrastructure/logger"
 	"github.com/gbrayhan/microservices-go/src/infrastructure/repository/psql"
+	"github.com/gbrayhan/microservices-go/src/infrastructure/repository/psql/document"
+	"github.com/gbrayhan/microservices-go/src/infrastructure/repository/psql/location"
 	"github.com/gbrayhan/microservices-go/src/infrastructure/repository/psql/medicine"
+	"github.com/gbrayhan/microservices-go/src/infrastructure/repository/psql/payment"
+	"github.com/gbrayhan/microservices-go/src/infrastructure/repository/psql/pricing"
+	"github.com/gbrayhan/microservices-go/src/infrastructure/repository/psql/promo"
+	"github.com/gbrayhan/microservices-go/src/infrastructure/repository/psql/ride"
+	"github.com/gbrayhan/microservices-go/src/infrastructure/repository/psql/scheduled"
 	"github.com/gbrayhan/microservices-go/src/infrastructure/repository/psql/user"
+	"github.com/gbrayhan/microservices-go/src/infrastructure/repository/psql/vehicle"
+	"github.com/gbrayhan/microservices-go/src/infrastructure/repository/psql/wallet"
 	authController "github.com/gbrayhan/microservices-go/src/infrastructure/rest/controllers/auth"
+	documentController "github.com/gbrayhan/microservices-go/src/infrastructure/rest/controllers/document"
+	locationController "github.com/gbrayhan/microservices-go/src/infrastructure/rest/controllers/location"
 	medicineController "github.com/gbrayhan/microservices-go/src/infrastructure/rest/controllers/medicine"
+	paymentController "github.com/gbrayhan/microservices-go/src/infrastructure/rest/controllers/payment"
+	pricingController "github.com/gbrayhan/microservices-go/src/infrastructure/rest/controllers/pricing"
+	promoController "github.com/gbrayhan/microservices-go/src/infrastructure/rest/controllers/promo"
+	rideController "github.com/gbrayhan/microservices-go/src/infrastructure/rest/controllers/ride"
+	scheduledController "github.com/gbrayhan/microservices-go/src/infrastructure/rest/controllers/scheduled"
 	userController "github.com/gbrayhan/microservices-go/src/infrastructure/rest/controllers/user"
+	vehicleController "github.com/gbrayhan/microservices-go/src/infrastructure/rest/controllers/vehicle"
+	walletController "github.com/gbrayhan/microservices-go/src/infrastructure/rest/controllers/wallet"
 	"github.com/gbrayhan/microservices-go/src/infrastructure/security"
 	"gorm.io/gorm"
 )
 
 // ApplicationContext holds all application dependencies and services
 type ApplicationContext struct {
-	DB                 *gorm.DB
-	Logger             *logger.Logger
-	AuthController     authController.IAuthController
-	UserController     userController.IUserController
-	MedicineController medicineController.IMedicineController
-	JWTService         security.IJWTService
-	UserRepository     user.UserRepositoryInterface
-	MedicineRepository medicine.MedicineRepositoryInterface
-	AuthUseCase        authUseCase.IAuthUseCase
-	UserUseCase        userUseCase.IUserUseCase
-	MedicineUseCase    medicineUseCase.IMedicineUseCase
+	// Core infrastructure
+	DB         *gorm.DB
+	Logger     *logger.Logger
+	JWTService security.IJWTService
+
+	// Controllers
+	AuthController       authController.IAuthController
+	UserController       userController.IUserController
+	MedicineController   medicineController.IMedicineController
+	VehicleController    vehicleController.IVehicleController
+	RideController       rideController.IRideController
+	PaymentController    paymentController.IPaymentController
+	PricingController    pricingController.IPricingController
+	PromoController      promoController.IPromoController
+	LocationController   locationController.ILocationController
+	DocumentController   documentController.IDocumentController
+	ScheduledController  scheduledController.IScheduledController
+	WalletController     walletController.IWalletController
+
+	// Repositories
+	UserRepository       user.UserRepositoryInterface
+	MedicineRepository   medicine.MedicineRepositoryInterface
+	VehicleRepository    vehicle.VehicleRepositoryInterface
+	RideRepository       ride.RideRepositoryInterface
+	PaymentRepository    payment.PaymentRepositoryInterface
+	PricingRepository    *pricing.PricingRepository
+	PromoRepository      *promo.PromoRepository
+	LocationRepository   *location.LocationRepository
+	DocumentRepository   *document.DocumentRepository
+	ScheduledRepository  *scheduled.ScheduledRideRepository
+	WalletRepository     *wallet.WalletRepository
+
+	// Use Cases
+	AuthUseCase       authUseCase.IAuthUseCase
+	UserUseCase       userUseCase.IUserUseCase
+	MedicineUseCase   medicineUseCase.IMedicineUseCase
+	VehicleUseCase    vehicleUseCase.IVehicleUseCase
+	RideUseCase       rideUseCase.IRideUseCase
+	PaymentUseCase    paymentUseCase.IPaymentUseCase
+	PricingUseCase    pricingUseCase.IPricingUseCase
+	PromoUseCase      promoUseCase.IPromoUseCase
+	LocationUseCase   locationUseCase.ILocationUseCase
+	DocumentUseCase   documentUseCase.IDocumentUseCase
+	ScheduledUseCase  scheduledUseCase.IScheduledRideUseCase
+	WalletUseCase     walletUseCase.IWalletUseCase
 }
 
 var (
@@ -58,29 +119,90 @@ func SetupDependencies(loggerInstance *logger.Logger) (*ApplicationContext, erro
 	// Initialize repositories with logger
 	userRepo := user.NewUserRepository(db, loggerInstance)
 	medicineRepo := medicine.NewMedicineRepository(db, loggerInstance)
+	vehicleRepo := vehicle.NewVehicleRepository(db, loggerInstance)
+	rideRepo := ride.NewRideRepository(db, loggerInstance)
+	paymentRepo := payment.NewPaymentRepository(db, loggerInstance)
+	pricingRepo := pricing.NewPricingRepository(db, loggerInstance)
+	promoRepo := promo.NewPromoRepository(db, loggerInstance)
+	locationRepo := location.NewLocationRepository(db, loggerInstance)
+	documentRepo := document.NewDocumentRepository(db, loggerInstance)
+	scheduledRepo := scheduled.NewScheduledRideRepository(db, loggerInstance)
+	walletRepo := wallet.NewWalletRepository(db, loggerInstance)
 
 	// Initialize use cases with logger
 	authUC := authUseCase.NewAuthUseCase(userRepo, jwtService, loggerInstance)
 	userUC := userUseCase.NewUserUseCase(userRepo, loggerInstance)
 	medicineUC := medicineUseCase.NewMedicineUseCase(medicineRepo, loggerInstance)
+	vehicleUC := vehicleUseCase.NewVehicleUseCase(vehicleRepo, loggerInstance)
+	rideUC := rideUseCase.NewRideUseCase(rideRepo, userRepo, vehicleRepo, loggerInstance)
+	paymentUC := paymentUseCase.NewPaymentUseCase(paymentRepo, rideRepo, loggerInstance)
+	pricingUC := pricingUseCase.NewPricingUseCase(pricingRepo, loggerInstance)
+	promoUC := promoUseCase.NewPromoUseCase(promoRepo, loggerInstance)
+	locationUC := locationUseCase.NewLocationUseCase(locationRepo, loggerInstance)
+	documentUC := documentUseCase.NewDocumentUseCase(documentRepo, loggerInstance)
+	scheduledUC := scheduledUseCase.NewScheduledRideUseCase(scheduledRepo, loggerInstance)
+	walletUC := walletUseCase.NewWalletUseCase(walletRepo, loggerInstance)
 
 	// Initialize controllers with logger
-	authController := authController.NewAuthController(authUC, loggerInstance)
-	userController := userController.NewUserController(userUC, loggerInstance)
-	medicineController := medicineController.NewMedicineController(medicineUC, loggerInstance)
+	authCtrl := authController.NewAuthController(authUC, loggerInstance)
+	userCtrl := userController.NewUserController(userUC, loggerInstance)
+	medicineCtrl := medicineController.NewMedicineController(medicineUC, loggerInstance)
+	vehicleCtrl := vehicleController.NewVehicleController(vehicleUC, loggerInstance)
+	rideCtrl := rideController.NewRideController(rideUC, loggerInstance)
+	paymentCtrl := paymentController.NewPaymentController(paymentUC, loggerInstance)
+	pricingCtrl := pricingController.NewPricingController(pricingUC, loggerInstance)
+	promoCtrl := promoController.NewPromoController(promoUC, loggerInstance)
+	locationCtrl := locationController.NewLocationController(locationUC, loggerInstance)
+	documentCtrl := documentController.NewDocumentController(documentUC, loggerInstance)
+	scheduledCtrl := scheduledController.NewScheduledController(scheduledUC, loggerInstance)
+	walletCtrl := walletController.NewWalletController(walletUC, loggerInstance)
 
 	return &ApplicationContext{
-		DB:                 db,
-		Logger:             loggerInstance,
-		AuthController:     authController,
-		UserController:     userController,
-		MedicineController: medicineController,
-		JWTService:         jwtService,
-		UserRepository:     userRepo,
-		MedicineRepository: medicineRepo,
-		AuthUseCase:        authUC,
-		UserUseCase:        userUC,
-		MedicineUseCase:    medicineUC,
+		// Core infrastructure
+		DB:         db,
+		Logger:     loggerInstance,
+		JWTService: jwtService,
+
+		// Controllers
+		AuthController:      authCtrl,
+		UserController:      userCtrl,
+		MedicineController:  medicineCtrl,
+		VehicleController:   vehicleCtrl,
+		RideController:      rideCtrl,
+		PaymentController:   paymentCtrl,
+		PricingController:   pricingCtrl,
+		PromoController:     promoCtrl,
+		LocationController:  locationCtrl,
+		DocumentController:  documentCtrl,
+		ScheduledController: scheduledCtrl,
+		WalletController:    walletCtrl,
+
+		// Repositories
+		UserRepository:      userRepo,
+		MedicineRepository:  medicineRepo,
+		VehicleRepository:   vehicleRepo,
+		RideRepository:      rideRepo,
+		PaymentRepository:   paymentRepo,
+		PricingRepository:   pricingRepo,
+		PromoRepository:     promoRepo,
+		LocationRepository:  locationRepo,
+		DocumentRepository:  documentRepo,
+		ScheduledRepository: scheduledRepo,
+		WalletRepository:    walletRepo,
+
+		// Use Cases
+		AuthUseCase:      authUC,
+		UserUseCase:      userUC,
+		MedicineUseCase:  medicineUC,
+		VehicleUseCase:   vehicleUC,
+		RideUseCase:      rideUC,
+		PaymentUseCase:   paymentUC,
+		PricingUseCase:   pricingUC,
+		PromoUseCase:     promoUC,
+		LocationUseCase:  locationUC,
+		DocumentUseCase:  documentUC,
+		ScheduledUseCase: scheduledUC,
+		WalletUseCase:    walletUC,
 	}, nil
 }
 
