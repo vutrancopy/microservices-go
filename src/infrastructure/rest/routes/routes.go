@@ -27,6 +27,14 @@ func ApplicationRouter(router *gin.Engine, appContext *di.ApplicationContext) {
 	RideRoutes(v1, appContext.RideController)
 	PaymentRoutes(v1, appContext.PaymentController)
 	
+	// Enhanced Features
+	PricingRoutes(v1, appContext.PricingController)
+	PromoRoutes(v1, appContext.PromoController)
+	LocationRoutes(v1, appContext.LocationController)
+	DocumentRoutes(v1, appContext.DocumentController)
+	ScheduledRoutes(v1, appContext.ScheduledController)
+	WalletRoutes(v1, appContext.WalletController)
+	
 	// Legacy (will be removed in future versions)
 	MedicineRoutes(v1, appContext.MedicineController)
 }

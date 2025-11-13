@@ -29,11 +29,17 @@ import (
 	"github.com/gbrayhan/microservices-go/src/infrastructure/repository/psql/vehicle"
 	"github.com/gbrayhan/microservices-go/src/infrastructure/repository/psql/wallet"
 	authController "github.com/gbrayhan/microservices-go/src/infrastructure/rest/controllers/auth"
+	documentController "github.com/gbrayhan/microservices-go/src/infrastructure/rest/controllers/document"
+	locationController "github.com/gbrayhan/microservices-go/src/infrastructure/rest/controllers/location"
 	medicineController "github.com/gbrayhan/microservices-go/src/infrastructure/rest/controllers/medicine"
 	paymentController "github.com/gbrayhan/microservices-go/src/infrastructure/rest/controllers/payment"
+	pricingController "github.com/gbrayhan/microservices-go/src/infrastructure/rest/controllers/pricing"
+	promoController "github.com/gbrayhan/microservices-go/src/infrastructure/rest/controllers/promo"
 	rideController "github.com/gbrayhan/microservices-go/src/infrastructure/rest/controllers/ride"
+	scheduledController "github.com/gbrayhan/microservices-go/src/infrastructure/rest/controllers/scheduled"
 	userController "github.com/gbrayhan/microservices-go/src/infrastructure/rest/controllers/user"
 	vehicleController "github.com/gbrayhan/microservices-go/src/infrastructure/rest/controllers/vehicle"
+	walletController "github.com/gbrayhan/microservices-go/src/infrastructure/rest/controllers/wallet"
 	"github.com/gbrayhan/microservices-go/src/infrastructure/security"
 	"gorm.io/gorm"
 )
@@ -46,12 +52,18 @@ type ApplicationContext struct {
 	JWTService security.IJWTService
 
 	// Controllers
-	AuthController      authController.IAuthController
-	UserController      userController.IUserController
-	MedicineController  medicineController.IMedicineController
-	VehicleController   vehicleController.IVehicleController
-	RideController      rideController.IRideController
-	PaymentController   paymentController.IPaymentController
+	AuthController       authController.IAuthController
+	UserController       userController.IUserController
+	MedicineController   medicineController.IMedicineController
+	VehicleController    vehicleController.IVehicleController
+	RideController       rideController.IRideController
+	PaymentController    paymentController.IPaymentController
+	PricingController    pricingController.IPricingController
+	PromoController      promoController.IPromoController
+	LocationController   locationController.ILocationController
+	DocumentController   documentController.IDocumentController
+	ScheduledController  scheduledController.IScheduledController
+	WalletController     walletController.IWalletController
 
 	// Repositories
 	UserRepository       user.UserRepositoryInterface
@@ -138,6 +150,12 @@ func SetupDependencies(loggerInstance *logger.Logger) (*ApplicationContext, erro
 	vehicleCtrl := vehicleController.NewVehicleController(vehicleUC, loggerInstance)
 	rideCtrl := rideController.NewRideController(rideUC, loggerInstance)
 	paymentCtrl := paymentController.NewPaymentController(paymentUC, loggerInstance)
+	pricingCtrl := pricingController.NewPricingController(pricingUC, loggerInstance)
+	promoCtrl := promoController.NewPromoController(promoUC, loggerInstance)
+	locationCtrl := locationController.NewLocationController(locationUC, loggerInstance)
+	documentCtrl := documentController.NewDocumentController(documentUC, loggerInstance)
+	scheduledCtrl := scheduledController.NewScheduledController(scheduledUC, loggerInstance)
+	walletCtrl := walletController.NewWalletController(walletUC, loggerInstance)
 
 	return &ApplicationContext{
 		// Core infrastructure
@@ -146,12 +164,18 @@ func SetupDependencies(loggerInstance *logger.Logger) (*ApplicationContext, erro
 		JWTService: jwtService,
 
 		// Controllers
-		AuthController:     authCtrl,
-		UserController:     userCtrl,
-		MedicineController: medicineCtrl,
-		VehicleController:  vehicleCtrl,
-		RideController:     rideCtrl,
-		PaymentController:  paymentCtrl,
+		AuthController:      authCtrl,
+		UserController:      userCtrl,
+		MedicineController:  medicineCtrl,
+		VehicleController:   vehicleCtrl,
+		RideController:      rideCtrl,
+		PaymentController:   paymentCtrl,
+		PricingController:   pricingCtrl,
+		PromoController:     promoCtrl,
+		LocationController:  locationCtrl,
+		DocumentController:  documentCtrl,
+		ScheduledController: scheduledCtrl,
+		WalletController:    walletCtrl,
 
 		// Repositories
 		UserRepository:      userRepo,
