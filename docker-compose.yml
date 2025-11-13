@@ -1,8 +1,10 @@
 version: "3.9"
 
 services:
-  postgres:
+  # PostgreSQL Database
+  db:
     image: postgres:17.4
+    container_name: ride_hailing_db
     restart: always
     env_file:
       - .env
@@ -17,32 +19,50 @@ services:
       start_period: 30s
       retries: 5
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:
-      - go-network
+      - ride-network
 
-  go-microservice:
+  # Adminer - Database Management UI
+  adminer:
+    image: adminer:4.8.1
+    container_name: ride_hailing_adminer
+    restart: always
+    ports:
+      - "8081:8080"
+    environment:
+      - ADMINER_DEFAULT_SERVER=db
+    depends_on:
+      - db
+    networks:
+      - ride-network
+
+  # Main API Service
+  api:
     build:
       context: .
-    image: go-microservice
+    image: ride-hailing-api
+    container_name: ride_hailing_api
     restart: on-failure
     env_file:
       - .env
     ports:
       - "8080:8080"
     depends_on:
-      postgres:
+      db:
         condition: service_healthy
     networks:
-      - go-network
+      - ride-network
     environment:
       # Server Configuration
       - SERVER_PORT=${SERVER_PORT:-8080}
+      - APP_ENV=${APP_ENV:-development}
+      - GO_ENV=${GO_ENV:-development}
       
       # Database Configuration
-      - DB_HOST=${DB_HOST:-postgres}
+      - DB_HOST=${DB_HOST:-db}
       - DB_PORT=${DB_PORT:-5432}
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
@@ -56,23 +76,20 @@ services:
       
       # JWT Configuration
       - JWT_ACCESS_SECRET_KEY=${JWT_ACCESS_SECRET_KEY}
-      - JWT_ACCESS_TIME_MINUTE=${JWT_ACCESS_TIME_MINUTE:-15}
+      - JWT_ACCESS_TIME_MINUTE=${JWT_ACCESS_TIME_MINUTE:-60}
       - JWT_REFRESH_SECRET_KEY=${JWT_REFRESH_SECRET_KEY}
       - JWT_REFRESH_TIME_HOUR=${JWT_REFRESH_TIME_HOUR:-168}
       - JWT_ISSUER=${JWT_ISSUER}
       
       # Initial User Configuration
-      - START_USER_EMAIL=${START_USER_EMAIL:-gbrayhan@gmail.com}
-      - START_USER_PW=${START_USER_PW:-qweqwe}
-      
-      # Optional External Services
-      - IMGUR_CLIENT_ID=${IMGUR_CLIENT_ID:-}
-      - WKHTMLTOPDF_BIN=${WKHTMLTOPDF_BIN:-/usr/local/bin/wkhtmltopdf}
-      
+      - START_USER_EMAIL=${START_USER_EMAIL:-admin@ridehailing.com}
+      - START_USER_PW=${START_USER_PW:-Admin@123}
 
 volumes:
   pgdata:
+    driver: local
 
 networks:
-  go-network:
+  ride-network:
     driver: bridge
+    name: ride_hailing_network

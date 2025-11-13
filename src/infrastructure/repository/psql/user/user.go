@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gbrayhan/microservices-go/src/domain"
+	"github.com/gbrayhan/microservices-go/src/domain/common"
 	domainErrors "github.com/gbrayhan/microservices-go/src/domain/errors"
 	domainUser "github.com/gbrayhan/microservices-go/src/domain/user"
 	logger "github.com/gbrayhan/microservices-go/src/infrastructure/logger"
@@ -13,15 +14,25 @@ import (
 )
 
 type User struct {
-	ID           int       `gorm:"primaryKey"`
-	UserName     string    `gorm:"column:user_name;unique"`
-	Email        string    `gorm:"unique"`
-	FirstName    string    `gorm:"column:first_name"`
-	LastName     string    `gorm:"column:last_name"`
-	Status       bool      `gorm:"column:status"`
-	HashPassword string    `gorm:"column:hash_password"`
-	CreatedAt    time.Time `gorm:"autoCreateTime:mili"`
-	UpdatedAt    time.Time `gorm:"autoUpdateTime:mili"`
+	ID            int        `gorm:"primaryKey"`
+	UserName      string     `gorm:"column:user_name;unique"`
+	Email         string     `gorm:"unique"`
+	FirstName     string     `gorm:"column:first_name"`
+	LastName      string     `gorm:"column:last_name"`
+	Status        bool       `gorm:"column:status"`
+	HashPassword  string     `gorm:"column:hash_password"`
+	Role          string     `gorm:"column:role;default:'rider'"`
+	PhoneNumber   string     `gorm:"column:phone_number"`
+	ProfileImage  string     `gorm:"column:profile_image"`
+	Rating        float64    `gorm:"column:rating;default:5.0"`
+	TotalRides    int        `gorm:"column:total_rides;default:0"`
+	Latitude      float64    `gorm:"column:latitude"`
+	Longitude     float64    `gorm:"column:longitude"`
+	LastLocation  *time.Time `gorm:"column:last_location"`
+	IsAvailable   bool       `gorm:"column:is_available;default:false"`
+	LicenseNumber string     `gorm:"column:license_number"`
+	CreatedAt     time.Time  `gorm:"autoCreateTime:mili"`
+	UpdatedAt     time.Time  `gorm:"autoUpdateTime:mili"`
 }
 
 func (User) TableName() string {
@@ -29,15 +40,25 @@ func (User) TableName() string {
 }
 
 var ColumnsUserMapping = map[string]string{
-	"id":           "id",
-	"userName":     "user_name",
-	"email":        "email",
-	"firstName":    "first_name",
-	"lastName":     "last_name",
-	"status":       "status",
-	"hashPassword": "hash_password",
-	"createdAt":    "created_at",
-	"updatedAt":    "updated_at",
+	"id":            "id",
+	"userName":      "user_name",
+	"email":         "email",
+	"firstName":     "first_name",
+	"lastName":      "last_name",
+	"status":        "status",
+	"hashPassword":  "hash_password",
+	"role":          "role",
+	"phoneNumber":   "phone_number",
+	"profileImage":  "profile_image",
+	"rating":        "rating",
+	"totalRides":    "total_rides",
+	"latitude":      "latitude",
+	"longitude":     "longitude",
+	"lastLocation":  "last_location",
+	"isAvailable":   "is_available",
+	"licenseNumber": "license_number",
+	"createdAt":     "created_at",
+	"updatedAt":     "updated_at",
 }
 
 // UserRepositoryInterface defines the interface for user repository operations
@@ -50,6 +71,10 @@ type UserRepositoryInterface interface {
 	Delete(id int) error
 	SearchPaginated(filters domain.DataFilters) (*domainUser.SearchResultUser, error)
 	SearchByProperty(property string, searchText string) (*[]string, error)
+	// Ride-hailing specific methods
+	GetByRole(role common.UserRole) (*[]domainUser.User, error)
+	GetAvailableDrivers() (*[]domainUser.User, error)
+	GetAvailableDriversNearby(latitude, longitude float64, radiusKm float64) (*[]domainUser.User, error)
 }
 
 type Repository struct {
@@ -296,32 +321,119 @@ func (r *Repository) SearchByProperty(property string, searchText string) (*[]st
 	return &coincidences, nil
 }
 
+// GetByRole retrieves users by role
+func (r *Repository) GetByRole(role common.UserRole) (*[]domainUser.User, error) {
+	var users []User
+	if err := r.DB.Where("role = ?", string(role)).Find(&users).Error; err != nil {
+		r.Logger.Error("Error getting users by role", zap.Error(err), zap.String("role", string(role)))
+		return nil, domainErrors.NewAppErrorWithType(domainErrors.UnknownError)
+	}
+	r.Logger.Info("Successfully retrieved users by role",
+		zap.String("role", string(role)),
+		zap.Int("count", len(users)))
+	return arrayToDomainMapper(&users), nil
+}
+
+// GetAvailableDrivers retrieves all available drivers
+func (r *Repository) GetAvailableDrivers() (*[]domainUser.User, error) {
+	var users []User
+	if err := r.DB.Where("role = ? AND is_available = ? AND status = ?",
+		string(common.RoleDriver), true, true).Find(&users).Error; err != nil {
+		r.Logger.Error("Error getting available drivers", zap.Error(err))
+		return nil, domainErrors.NewAppErrorWithType(domainErrors.UnknownError)
+	}
+	r.Logger.Info("Successfully retrieved available drivers", zap.Int("count", len(users)))
+	return arrayToDomainMapper(&users), nil
+}
+
+// GetAvailableDriversNearby retrieves available drivers within radius
+func (r *Repository) GetAvailableDriversNearby(latitude, longitude float64, radiusKm float64) (*[]domainUser.User, error) {
+	var users []User
+	// Using Haversine formula for distance calculation
+	// Note: This is a simplified version. For production, consider using PostGIS
+	query := `
+		SELECT * FROM users
+		WHERE role = ?
+		AND is_available = ?
+		AND status = ?
+		AND (
+			6371 * acos(
+				cos(radians(?)) * cos(radians(latitude)) *
+				cos(radians(longitude) - radians(?)) +
+				sin(radians(?)) * sin(radians(latitude))
+			)
+		) <= ?
+		ORDER BY (
+			6371 * acos(
+				cos(radians(?)) * cos(radians(latitude)) *
+				cos(radians(longitude) - radians(?)) +
+				sin(radians(?)) * sin(radians(latitude))
+			)
+		) ASC
+		LIMIT 10
+	`
+	if err := r.DB.Raw(query,
+		string(common.RoleDriver), true, true,
+		latitude, longitude, latitude, radiusKm,
+		latitude, longitude, latitude,
+	).Scan(&users).Error; err != nil {
+		r.Logger.Error("Error getting nearby drivers", zap.Error(err))
+		return nil, domainErrors.NewAppErrorWithType(domainErrors.UnknownError)
+	}
+	r.Logger.Info("Successfully retrieved nearby drivers",
+		zap.Int("count", len(users)),
+		zap.Float64("latitude", latitude),
+		zap.Float64("longitude", longitude),
+		zap.Float64("radiusKm", radiusKm))
+	return arrayToDomainMapper(&users), nil
+}
+
 // Mappers
 func (u *User) toDomainMapper() *domainUser.User {
 	return &domainUser.User{
-		ID:           u.ID,
-		UserName:     u.UserName,
-		Email:        u.Email,
-		FirstName:    u.FirstName,
-		LastName:     u.LastName,
-		Status:       u.Status,
-		HashPassword: u.HashPassword,
-		CreatedAt:    u.CreatedAt,
-		UpdatedAt:    u.UpdatedAt,
+		ID:            u.ID,
+		UserName:      u.UserName,
+		Email:         u.Email,
+		FirstName:     u.FirstName,
+		LastName:      u.LastName,
+		Status:        u.Status,
+		HashPassword:  u.HashPassword,
+		Role:          common.UserRole(u.Role),
+		PhoneNumber:   u.PhoneNumber,
+		ProfileImage:  u.ProfileImage,
+		Rating:        u.Rating,
+		TotalRides:    u.TotalRides,
+		Latitude:      u.Latitude,
+		Longitude:     u.Longitude,
+		LastLocation:  u.LastLocation,
+		IsAvailable:   u.IsAvailable,
+		LicenseNumber: u.LicenseNumber,
+		CreatedAt:     u.CreatedAt,
+		UpdatedAt:     u.UpdatedAt,
 	}
 }
 
 func fromDomainMapper(u *domainUser.User) *User {
 	return &User{
-		ID:           u.ID,
-		UserName:     u.UserName,
-		Email:        u.Email,
-		FirstName:    u.FirstName,
-		LastName:     u.LastName,
-		Status:       u.Status,
-		HashPassword: u.HashPassword,
-		CreatedAt:    u.CreatedAt,
-		UpdatedAt:    u.UpdatedAt,
+		ID:            u.ID,
+		UserName:      u.UserName,
+		Email:         u.Email,
+		FirstName:     u.FirstName,
+		LastName:      u.LastName,
+		Status:        u.Status,
+		HashPassword:  u.HashPassword,
+		Role:          string(u.Role),
+		PhoneNumber:   u.PhoneNumber,
+		ProfileImage:  u.ProfileImage,
+		Rating:        u.Rating,
+		TotalRides:    u.TotalRides,
+		Latitude:      u.Latitude,
+		Longitude:     u.Longitude,
+		LastLocation:  u.LastLocation,
+		IsAvailable:   u.IsAvailable,
+		LicenseNumber: u.LicenseNumber,
+		CreatedAt:     u.CreatedAt,
+		UpdatedAt:     u.UpdatedAt,
 	}
 }
 
