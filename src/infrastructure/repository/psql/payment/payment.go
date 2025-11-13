@@ -8,7 +8,6 @@ import (
 	domainErrors "github.com/gbrayhan/microservices-go/src/domain/errors"
 	paymentDomain "github.com/gbrayhan/microservices-go/src/domain/payment"
 	logger "github.com/gbrayhan/microservices-go/src/infrastructure/logger"
-	"github.com/gbrayhan/microservices-go/src/infrastructure/repository/psql"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -158,7 +157,7 @@ func (r *Repository) Create(paymentDomain *paymentDomain.Payment) (*paymentDomai
 	paymentRepository := fromDomainMapper(paymentDomain)
 	if err := r.DB.Create(paymentRepository).Error; err != nil {
 		r.Logger.Error("Error creating payment", zap.Error(err))
-		return nil, domainErrors.HandleGormError(err)
+		return nil, domainErrors.NewAppErrorWithType(domainErrors.UnknownError)
 	}
 
 	r.Logger.Info("Payment created successfully", zap.Int("id", paymentRepository.ID))
@@ -180,7 +179,7 @@ func (r *Repository) Update(id int, paymentMap map[string]interface{}) (*payment
 
 	if err := r.DB.Model(&payment).Updates(paymentMap).Error; err != nil {
 		r.Logger.Error("Error updating payment", zap.Error(err), zap.Int("id", id))
-		return nil, domainErrors.HandleGormError(err)
+		return nil, domainErrors.NewAppErrorWithType(domainErrors.UnknownError)
 	}
 
 	// Reload to get updated data
@@ -199,7 +198,7 @@ func (r *Repository) Delete(id int) error {
 	result := r.DB.Delete(&Payment{}, id)
 	if result.Error != nil {
 		r.Logger.Error("Error deleting payment", zap.Error(result.Error), zap.Int("id", id))
-		return domainErrors.HandleGormError(result.Error)
+		return domainErrors.NewAppErrorWithType(domainErrors.UnknownError)
 	}
 
 	if result.RowsAffected == 0 {
@@ -221,8 +220,52 @@ func (r *Repository) SearchPaginated(filters domain.DataFilters) (*paymentDomain
 
 	query := r.DB.Model(&Payment{})
 
-	// Apply filters
-	query = psql.ApplyFilters(query, filters, ColumnsPaymentMapping)
+	// Apply like filters
+	for field, values := range filters.LikeFilters {
+		if len(values) > 0 {
+			for _, value := range values {
+				if value != "" {
+					column := ColumnsPaymentMapping[field]
+					if column != "" {
+						query = query.Where(column+" ILIKE ?", "%"+value+"%")
+					}
+				}
+			}
+		}
+	}
+
+	// Apply exact matches
+	for field, values := range filters.Matches {
+		if len(values) > 0 {
+			column := ColumnsPaymentMapping[field]
+			if column != "" {
+				query = query.Where(column+" IN ?", values)
+			}
+		}
+	}
+
+	// Apply date range filters
+	for _, dateFilter := range filters.DateRangeFilters {
+		column := ColumnsPaymentMapping[dateFilter.Field]
+		if column != "" {
+			if dateFilter.Start != nil {
+				query = query.Where(column+" >= ?", dateFilter.Start)
+			}
+			if dateFilter.End != nil {
+				query = query.Where(column+" <= ?", dateFilter.End)
+			}
+		}
+	}
+
+	// Apply sorting
+	if len(filters.SortBy) > 0 && filters.SortDirection.IsValid() {
+		for _, sortField := range filters.SortBy {
+			column := ColumnsPaymentMapping[sortField]
+			if column != "" {
+				query = query.Order(column + " " + string(filters.SortDirection))
+			}
+		}
+	}
 
 	// Count total
 	if err := query.Count(&total).Error; err != nil {

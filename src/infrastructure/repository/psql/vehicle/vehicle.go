@@ -2,7 +2,6 @@ package vehicle
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/gbrayhan/microservices-go/src/domain"
@@ -10,7 +9,6 @@ import (
 	domainErrors "github.com/gbrayhan/microservices-go/src/domain/errors"
 	vehicleDomain "github.com/gbrayhan/microservices-go/src/domain/vehicle"
 	logger "github.com/gbrayhan/microservices-go/src/infrastructure/logger"
-	"github.com/gbrayhan/microservices-go/src/infrastructure/repository/psql"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -123,7 +121,15 @@ func (r *Repository) Create(vehicleDomain *vehicleDomain.Vehicle) (*vehicleDomai
 	vehicleRepository := fromDomainMapper(vehicleDomain)
 	if err := r.DB.Create(vehicleRepository).Error; err != nil {
 		r.Logger.Error("Error creating vehicle", zap.Error(err))
-		return nil, domainErrors.HandleGormError(err)
+		byteErr, _ := json.Marshal(err)
+		var gormErr domainErrors.GormErr
+		if unmarshalErr := json.Unmarshal(byteErr, &gormErr); unmarshalErr == nil {
+			switch gormErr.Number {
+			case 1062:
+				return nil, domainErrors.NewAppErrorWithType(domainErrors.ResourceAlreadyExists)
+			}
+		}
+		return nil, domainErrors.NewAppErrorWithType(domainErrors.UnknownError)
 	}
 
 	r.Logger.Info("Vehicle created successfully", zap.Int("id", vehicleRepository.ID))
@@ -145,7 +151,15 @@ func (r *Repository) Update(id int, vehicleMap map[string]interface{}) (*vehicle
 
 	if err := r.DB.Model(&vehicle).Updates(vehicleMap).Error; err != nil {
 		r.Logger.Error("Error updating vehicle", zap.Error(err), zap.Int("id", id))
-		return nil, domainErrors.HandleGormError(err)
+		byteErr, _ := json.Marshal(err)
+		var gormErr domainErrors.GormErr
+		if unmarshalErr := json.Unmarshal(byteErr, &gormErr); unmarshalErr == nil {
+			switch gormErr.Number {
+			case 1062:
+				return nil, domainErrors.NewAppErrorWithType(domainErrors.ResourceAlreadyExists)
+			}
+		}
+		return nil, domainErrors.NewAppErrorWithType(domainErrors.UnknownError)
 	}
 
 	// Reload to get updated data
@@ -164,7 +178,7 @@ func (r *Repository) Delete(id int) error {
 	result := r.DB.Delete(&Vehicle{}, id)
 	if result.Error != nil {
 		r.Logger.Error("Error deleting vehicle", zap.Error(result.Error), zap.Int("id", id))
-		return domainErrors.HandleGormError(result.Error)
+		return domainErrors.NewAppErrorWithType(domainErrors.UnknownError)
 	}
 
 	if result.RowsAffected == 0 {
@@ -186,8 +200,52 @@ func (r *Repository) SearchPaginated(filters domain.DataFilters) (*vehicleDomain
 
 	query := r.DB.Model(&Vehicle{})
 
-	// Apply filters
-	query = psql.ApplyFilters(query, filters, ColumnsVehicleMapping)
+	// Apply like filters
+	for field, values := range filters.LikeFilters {
+		if len(values) > 0 {
+			for _, value := range values {
+				if value != "" {
+					column := ColumnsVehicleMapping[field]
+					if column != "" {
+						query = query.Where(column+" ILIKE ?", "%"+value+"%")
+					}
+				}
+			}
+		}
+	}
+
+	// Apply exact matches
+	for field, values := range filters.Matches {
+		if len(values) > 0 {
+			column := ColumnsVehicleMapping[field]
+			if column != "" {
+				query = query.Where(column+" IN ?", values)
+			}
+		}
+	}
+
+	// Apply date range filters
+	for _, dateFilter := range filters.DateRangeFilters {
+		column := ColumnsVehicleMapping[dateFilter.Field]
+		if column != "" {
+			if dateFilter.Start != nil {
+				query = query.Where(column+" >= ?", dateFilter.Start)
+			}
+			if dateFilter.End != nil {
+				query = query.Where(column+" <= ?", dateFilter.End)
+			}
+		}
+	}
+
+	// Apply sorting
+	if len(filters.SortBy) > 0 && filters.SortDirection.IsValid() {
+		for _, sortField := range filters.SortBy {
+			column := ColumnsVehicleMapping[sortField]
+			if column != "" {
+				query = query.Order(column + " " + string(filters.SortDirection))
+			}
+		}
+	}
 
 	// Count total
 	if err := query.Count(&total).Error; err != nil {

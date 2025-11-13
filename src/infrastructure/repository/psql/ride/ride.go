@@ -8,7 +8,6 @@ import (
 	domainErrors "github.com/gbrayhan/microservices-go/src/domain/errors"
 	rideDomain "github.com/gbrayhan/microservices-go/src/domain/ride"
 	logger "github.com/gbrayhan/microservices-go/src/infrastructure/logger"
-	"github.com/gbrayhan/microservices-go/src/infrastructure/repository/psql"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -174,7 +173,7 @@ func (r *Repository) Create(rideDomain *rideDomain.Ride) (*rideDomain.Ride, erro
 	rideRepository := fromDomainMapper(rideDomain)
 	if err := r.DB.Create(rideRepository).Error; err != nil {
 		r.Logger.Error("Error creating ride", zap.Error(err))
-		return nil, domainErrors.HandleGormError(err)
+		return nil, domainErrors.NewAppErrorWithType(domainErrors.UnknownError)
 	}
 
 	r.Logger.Info("Ride created successfully", zap.Int("id", rideRepository.ID))
@@ -196,7 +195,7 @@ func (r *Repository) Update(id int, rideMap map[string]interface{}) (*rideDomain
 
 	if err := r.DB.Model(&ride).Updates(rideMap).Error; err != nil {
 		r.Logger.Error("Error updating ride", zap.Error(err), zap.Int("id", id))
-		return nil, domainErrors.HandleGormError(err)
+		return nil, domainErrors.NewAppErrorWithType(domainErrors.UnknownError)
 	}
 
 	// Reload to get updated data
@@ -215,7 +214,7 @@ func (r *Repository) Delete(id int) error {
 	result := r.DB.Delete(&Ride{}, id)
 	if result.Error != nil {
 		r.Logger.Error("Error deleting ride", zap.Error(result.Error), zap.Int("id", id))
-		return domainErrors.HandleGormError(result.Error)
+		return domainErrors.NewAppErrorWithType(domainErrors.UnknownError)
 	}
 
 	if result.RowsAffected == 0 {
@@ -237,8 +236,52 @@ func (r *Repository) SearchPaginated(filters domain.DataFilters) (*rideDomain.Se
 
 	query := r.DB.Model(&Ride{})
 
-	// Apply filters
-	query = psql.ApplyFilters(query, filters, ColumnsRideMapping)
+	// Apply like filters
+	for field, values := range filters.LikeFilters {
+		if len(values) > 0 {
+			for _, value := range values {
+				if value != "" {
+					column := ColumnsRideMapping[field]
+					if column != "" {
+						query = query.Where(column+" ILIKE ?", "%"+value+"%")
+					}
+				}
+			}
+		}
+	}
+
+	// Apply exact matches
+	for field, values := range filters.Matches {
+		if len(values) > 0 {
+			column := ColumnsRideMapping[field]
+			if column != "" {
+				query = query.Where(column+" IN ?", values)
+			}
+		}
+	}
+
+	// Apply date range filters
+	for _, dateFilter := range filters.DateRangeFilters {
+		column := ColumnsRideMapping[dateFilter.Field]
+		if column != "" {
+			if dateFilter.Start != nil {
+				query = query.Where(column+" >= ?", dateFilter.Start)
+			}
+			if dateFilter.End != nil {
+				query = query.Where(column+" <= ?", dateFilter.End)
+			}
+		}
+	}
+
+	// Apply sorting
+	if len(filters.SortBy) > 0 && filters.SortDirection.IsValid() {
+		for _, sortField := range filters.SortBy {
+			column := ColumnsRideMapping[sortField]
+			if column != "" {
+				query = query.Order(column + " " + string(filters.SortDirection))
+			}
+		}
+	}
 
 	// Count total
 	if err := query.Count(&total).Error; err != nil {
